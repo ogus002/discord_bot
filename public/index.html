@@ -1,9 +1,10 @@
+<!-- metamask.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wallet Verification</title>
+    <title>MetaMask Verification</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.3/web3.min.js"></script>
     <style>
         body {
@@ -36,24 +37,18 @@
 </head>
 <body>
     <div class="container">
-        <h1>Wallet Verification</h1>
+        <h1>MetaMask Verification</h1>
         <p id="message"></p>
-        <button id="connect">Connect Wallet</button>
+        <button id="connect">Connect MetaMask</button>
         <button id="sign">Sign Message</button>
     </div>
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const address = urlParams.get('address');
         const message = urlParams.get('message');
-        const discordUserId = urlParams.get('discordUserId'); // 디스코드 사용자 ID
-        const method = urlParams.get('method'); // 인증 방법
+        const discordUserId = urlParams.get('discordUserId');
 
         document.getElementById('message').textContent = `Message: ${message}`;
-
-        console.log('address:', address);
-        console.log('message:', message);
-        console.log('discordUserId:', discordUserId);
-        console.log('method:', method);
 
         let web3;
         let userAddress;
@@ -101,31 +96,17 @@
                     const signature = await web3.eth.personal.sign(message, userAddress, '');
                     console.log('Message signed, signature:', signature);
 
-                    let verifyEndpoint;
-                    console.log('method:', method);
-                    if (method === 'metamask') {
-                        verifyEndpoint = 'http://localhost:3001/verify-metamask';
-                    } else if (method === 'xplaavault') {
-                        verifyEndpoint = 'http://localhost:3001/verify-xplaavault';
-                    } else {
-                        alert('Invalid verification method.');
-                        return;
-                    }
-
-                    console.log('Sending request to:', verifyEndpoint);
-                    const response = await fetch(verifyEndpoint, { 
+                    const response = await fetch('http://localhost:3001/verify-metamask', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ address, signature, message, discordUserId })
                     });
-                    console.log('Request sent, awaiting response...');
                     const result = await response.json();
-                    console.log('Received response:', result);
                     if (result.success) {
                         alert('Wallet verified successfully!');
                         document.getElementById('sign').style.display = 'none';
-                        document.getElementById('connect-metamask').style.display = 'none';
-                        document.getElementById('connect-xplaavault').style.display = 'none';
+                        document.getElementById('connect').style.display = 'none';
+                        document.getElementById('message').textContent = '인증 완료되었습니다.';
                         window.location.href = result.redirectUrl; // 인증 완료 후 리디렉션
                     } else {
                         alert('Wallet verification failed: ' + result.error);
