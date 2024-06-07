@@ -50,6 +50,11 @@
 
         document.getElementById('message').textContent = `Message: ${message}`;
 
+        console.log('address:', address);
+        console.log('message:', message);
+        console.log('discordUserId:', discordUserId);
+        console.log('method:', method);
+
         let web3;
         let userAddress;
 
@@ -97,6 +102,7 @@
                     console.log('Message signed, signature:', signature);
 
                     let verifyEndpoint;
+                    console.log('method:', method);
                     if (method === 'metamask') {
                         verifyEndpoint = 'https://test-discord-bot-bd0bccb22e7d.herokuapp.com/verify-metamask';
                     } else if (method === 'xplaavault') {
@@ -106,27 +112,30 @@
                         return;
                     }
 
+                    console.log('Sending request to:', verifyEndpoint);
                     const response = await fetch(verifyEndpoint, { 
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ address: userAddress, signature, message, discordUserId })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ address, signature, message, discordUserId })
                     });
-
+                    console.log('Request sent, awaiting response...');
                     const result = await response.json();
+                    console.log('Received response:', result);
                     if (result.success) {
-                        alert('Verification successful! Redirecting...');
-                        window.location.href = result.redirectUrl;
+                        alert('Wallet verified successfully!');
+                        document.getElementById('sign').style.display = 'none';
+                        document.getElementById('connect-metamask').style.display = 'none';
+                        document.getElementById('connect-xplaavault').style.display = 'none';
+                        window.location.href = result.redirectUrl; // 인증 완료 후 리디렉션
                     } else {
-                        alert('Verification failed: ' + result.error);
+                        alert('Wallet verification failed: ' + result.error);
                     }
                 } catch (error) {
                     console.error('Failed to sign message:', error);
-                    alert(`Failed to sign message. Error: ${error.message}`);
+                    alert('Failed to sign message.');
                 }
             } else {
-                alert('Wallet is not connected.');
+                alert('Please connect to Wallet first.');
             }
         };
     </script>
