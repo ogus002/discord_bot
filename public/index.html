@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wallet Verification</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.3/web3.min.js"></script>
     <style>
         body {
             display: flex;
@@ -43,7 +42,6 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // URL 파라미터 가져오기
             const urlParams = new URLSearchParams(window.location.search);
             const address = urlParams.get('address');
             const message = urlParams.get('message');
@@ -52,48 +50,37 @@
 
             document.getElementById('message').textContent = `Message: ${message}`;
 
-            console.log('address:', address);
-            console.log('message:', message);
-            console.log('discordUserId:', discordUserId);
-            console.log('method:', method);
-
-            let web3;
             let userAddress;
 
             const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
             document.getElementById('connect').onclick = async () => {
-                console.log('Connect button clicked');
                 if (isMobile && !window.ethereum) {
-                    // 모바일 환경에서 MetaMask Deep Link 사용
                     const deepLink = `https://metamask.app.link/dapp/${window.location.hostname}${window.location.pathname}${window.location.search}`;
                     window.location.href = deepLink;
 
-                    // 모바일에서 deep link를 통한 연결을 기다림
                     const interval = setInterval(() => {
                         if (window.ethereum) {
                             clearInterval(interval);
                             connectWallet();
                         }
                     }, 1000);
-                } else if (window.ethereum) {
-                    try {
-                        console.log('Initializing web3...');
-                        web3 = new Web3(window.ethereum);
-                        console.log('web3 initialized');
+                } else {
+                    connectWallet();
+                }
+            };
 
-                        // Wallet 연결 요청
+            const connectWallet = async () => {
+                if (window.ethereum) {
+                    try {
                         await window.ethereum.request({ method: 'eth_requestAccounts' });
-                        const accounts = await web3.eth.getAccounts();
-                        console.log('MetaMask accounts requested:', accounts);
+                        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
 
                         if (accounts.length === 0) {
                             throw new Error('No active wallet found');
                         }
 
                         userAddress = accounts[0];
-                        console.log('Connected to Wallet, address:', userAddress);
-
                         if (userAddress.toLowerCase() !== address.toLowerCase()) {
                             alert('Connected address does not match the provided address.');
                         } else {
@@ -101,24 +88,22 @@
                             document.getElementById('sign').style.display = 'inline-block';
                         }
                     } catch (error) {
-                        console.error('Failed to connect to Wallet:', error);
-                        alert(`Failed to connect to Wallet. Please ensure MetaMask is installed and an account is selected. Error: ${error.message}`);
+                        alert(`Failed to connect to Wallet. Error: ${error.message}`);
                     }
                 } else {
-                    console.error('window.ethereum is not detected');
-                    alert('Wallet not detected. Please install MetaMask.');
+                    alert('MetaMask not detected. Please install MetaMask.');
                 }
             };
 
             document.getElementById('sign').onclick = async () => {
-                console.log('Sign button clicked');
-                if (web3 && userAddress) {
+                if (userAddress) {
                     try {
-                        const signature = await web3.eth.personal.sign(message, userAddress, '');
-                        console.log('Message signed, signature:', signature);
+                        const signature = await window.ethereum.request({
+                            method: 'personal_sign',
+                            params: [message, userAddress]
+                        });
 
                         let verifyEndpoint;
-                        console.log('method:', method);
                         if (method === 'metamask') {
                             verifyEndpoint = 'https://discord-bot-server-85e66d848a04.herokuapp.com/verify-metamask';
                         } else if (method === 'xplaavault') {
@@ -128,24 +113,19 @@
                             return;
                         }
 
-                        console.log('Sending request to:', verifyEndpoint);
-                        const response = await fetch(verifyEndpoint, { 
+                        const response = await fetch(verifyEndpoint, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ address, signature, message, discordUserId })
                         });
-                        console.log('Request sent, awaiting response...');
                         const result = await response.json();
-                        console.log('Received response:', result);
                         if (result.success) {
                             alert('Wallet verified successfully!');
-                            document.getElementById('sign').style.display = 'none';
-                            window.open(result.redirectUrl, '_blank'); // 인증 완료 후 리디렉션
+                            window.open(result.redirectUrl, '_blank');
                         } else {
                             alert('Wallet verification failed: ' + result.error);
                         }
                     } catch (error) {
-                        console.error('Failed to sign message:', error);
                         alert('Failed to sign message.');
                     }
                 } else {
