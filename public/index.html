@@ -59,20 +59,16 @@
             document.getElementById('connect').onclick = async () => {
                 if (isMobile && !window.ethereum) {
                     const deepLink = `https://metamask.app.link/dapp/${window.location.hostname}${window.location.pathname}${window.location.search}`;
-                    window.open(deepLink, '_blank');
+                    window.open(deepLink, '_self');
                 } else if (window.ethereum) {
                     try {
                         web3 = new Web3(window.ethereum);
-
                         await window.ethereum.request({ method: 'eth_requestAccounts' });
                         const accounts = await web3.eth.getAccounts();
-
                         if (accounts.length === 0) {
                             throw new Error('No active wallet found');
                         }
-
                         userAddress = accounts[0];
-
                         if (userAddress.toLowerCase() !== address.toLowerCase()) {
                             alert('Connected address does not match the provided address.');
                         } else {
@@ -80,11 +76,9 @@
                             document.getElementById('sign').style.display = 'inline-block';
                         }
                     } catch (error) {
-                        console.error('Failed to connect to Wallet:', error);
                         alert(`Failed to connect to Wallet. Please ensure MetaMask is installed and an account is selected. Error: ${error.message}`);
                     }
                 } else {
-                    console.error('window.ethereum is not detected');
                     alert('Wallet not detected. Please install MetaMask.');
                 }
             };
@@ -93,7 +87,6 @@
                 if (web3 && userAddress) {
                     try {
                         const signature = await web3.eth.personal.sign(message, userAddress, '');
-
                         let verifyEndpoint;
                         if (method === 'metamask') {
                             verifyEndpoint = 'https://discord-bot-server-85e66d848a04.herokuapp.com/verify-metamask';
@@ -103,13 +96,11 @@
                             alert('Invalid verification method.');
                             return;
                         }
-
                         const response = await fetch(verifyEndpoint, { 
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ address, signature, message, discordUserId })
                         });
-
                         const result = await response.json();
                         if (result.success) {
                             alert('Wallet verified successfully!');
@@ -119,7 +110,6 @@
                             alert('Wallet verification failed: ' + result.error);
                         }
                     } catch (error) {
-                        console.error('Failed to sign message:', error);
                         alert('Failed to sign message.');
                     }
                 } else {
