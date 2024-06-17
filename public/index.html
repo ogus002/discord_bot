@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지갑 인증</title>
+    <title>Wallet Verification</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.7.3/web3.min.js"></script>
     <style>
         body {
@@ -36,94 +36,112 @@
 </head>
 <body>
     <div class="container">
-        <h1>지갑 인증</h1>
+        <h1>Wallet Verification</h1>
         <p id="message"></p>
-        <button id="connect">지갑 연결</button>
-        <button id="sign">메시지 서명</button>
+        <button id="connect">Connect Wallet</button>
+        <button id="sign">Sign Message</button>
     </div>
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
+        document.addEventListener('DOMContentLoaded', () => {
+            // URL 파라미터 가져오기
             const urlParams = new URLSearchParams(window.location.search);
             const address = urlParams.get('address');
             const message = urlParams.get('message');
             const discordUserId = urlParams.get('discordUserId');
             const method = urlParams.get('method');
 
-            document.getElementById('message').textContent = `메시지: ${message}`;
+            document.getElementById('message').textContent = `Message: ${message}`;
+
+            console.log('address:', address);
+            console.log('message:', message);
+            console.log('discordUserId:', discordUserId);
+            console.log('method:', method);
 
             let web3;
             let userAddress;
 
-            const connectButton = document.getElementById('connect');
-            const signButton = document.getElementById('sign');
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-            connectButton.onclick = async () => {
-                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
+            document.getElementById('connect').onclick = async () => {
+                console.log('Connect button clicked');
                 if (isMobile && !window.ethereum) {
                     // 모바일 환경에서 MetaMask Deep Link 사용
                     const deepLink = `https://metamask.app.link/dapp/${window.location.hostname}${window.location.pathname}${window.location.search}`;
                     window.open(deepLink, '_blank');
-                    // 모바일에서 deep link를 통한 연결을 기다림
-                    const interval = setInterval(() => {
-                        if (window.ethereum) {
-                            clearInterval(interval);
-                            connectWallet();
-                        }
-                    }, 1000);
-                } else {
-                    connectWallet();
-                }
-            };
-
-            const connectWallet = async () => {
-                if (window.ethereum) {
+                } else if (window.ethereum) {
                     try {
+                        console.log('Initializing web3...');
                         web3 = new Web3(window.ethereum);
+                        console.log('web3 initialized');
+
+                        // Wallet 연결 요청
                         await window.ethereum.request({ method: 'eth_requestAccounts' });
                         const accounts = await web3.eth.getAccounts();
+                        console.log('MetaMask accounts requested:', accounts);
+
+                        if (accounts.length === 0) {
+                            throw new Error('No active wallet found');
+                        }
+
                         userAddress = accounts[0];
+                        console.log('Connected to Wallet, address:', userAddress);
 
                         if (userAddress.toLowerCase() !== address.toLowerCase()) {
-                            alert('연결된 주소가 제공된 주소와 일치하지 않습니다.');
+                            alert('Connected address does not match the provided address.');
                         } else {
-                            alert('지갑이 연결되었습니다!');
-                            signButton.style.display = 'inline-block';
+                            alert('Wallet connected!');
+                            document.getElementById('sign').style.display = 'inline-block';
                         }
                     } catch (error) {
-                        console.error('지갑 연결 실패:', error);
-                        alert(`지갑 연결 실패. MetaMask가 설치되어 있고 계정이 선택되어 있는지 확인하십시오. 오류: ${error.message}`);
+                        console.error('Failed to connect to Wallet:', error);
+                        alert(`Failed to connect to Wallet. Please ensure MetaMask is installed and an account is selected. Error: ${error.message}`);
                     }
                 } else {
-                    alert('MetaMask가 감지되지 않았습니다. MetaMask를 설치하십시오.');
+                    console.error('window.ethereum is not detected');
+                    alert('Wallet not detected. Please install MetaMask.');
                 }
             };
 
-            signButton.onclick = async () => {
+            document.getElementById('sign').onclick = async () => {
+                console.log('Sign button clicked');
                 if (web3 && userAddress) {
                     try {
                         const signature = await web3.eth.personal.sign(message, userAddress, '');
-                        let verifyEndpoint = method === 'metamask' ? '/verify-metamask' : '/verify-xplaavault';
+                        console.log('Message signed, signature:', signature);
 
-                        const response = await fetch(verifyEndpoint, {
+                        let verifyEndpoint;
+                        console.log('method:', method);
+                        if (method === 'metamask') {
+                            verifyEndpoint = 'https://discord-bot-server-85e66d848a04.herokuapp.com/verify-metamask';
+                        } else if (method === 'xplaavault') {
+                            verifyEndpoint = 'https://discord-bot-server-85e66d848a04.herokuapp.com/verify-xplaavault';
+                        } else {
+                            alert('Invalid verification method.');
+                            return;
+                        }
+
+                        console.log('Sending request to:', verifyEndpoint);
+                        const response = await fetch(verifyEndpoint, { 
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ address, signature, message, discordUserId })
                         });
-
+                        console.log('Request sent, awaiting response...');
                         const result = await response.json();
+                        console.log('Received response:', result);
                         if (result.success) {
-                            alert('지갑이 성공적으로 인증되었습니다!');
-                            window.open(result.redirectUrl, '_blank');
+                            alert('Wallet verified successfully!');
+                            document.getElementById('sign').style.display = 'none';
+                            window.open(result.redirectUrl, '_blank'); // 인증 완료 후 리디렉션
                         } else {
-                            alert('지갑 인증 실패: ' + result.error);
+                            alert('Wallet verification failed: ' + result.error);
                         }
                     } catch (error) {
-                        console.error('메시지 서명 실패:', error);
-                        alert('메시지 서명 실패.');
+                        console.error('Failed to sign message:', error);
+                        alert('Failed to sign message.');
                     }
                 } else {
-                    alert('먼저 지갑을 연결하십시오.');
+                    alert('Please connect to Wallet first.');
                 }
             };
         });
