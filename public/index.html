@@ -67,7 +67,15 @@
                 if (isMobile && !window.ethereum) {
                     // 모바일 환경에서 MetaMask Deep Link 사용
                     const deepLink = `https://metamask.app.link/dapp/${window.location.hostname}${window.location.pathname}${window.location.search}`;
-                    window.open(deepLink, '_blank');
+                    window.location.href = deepLink;
+
+                    // 모바일에서 deep link를 통한 연결을 기다림
+                    const interval = setInterval(() => {
+                        if (window.ethereum) {
+                            clearInterval(interval);
+                            connectWallet();
+                        }
+                    }, 1000);
                 } else if (window.ethereum) {
                     try {
                         console.log('Initializing web3...');
