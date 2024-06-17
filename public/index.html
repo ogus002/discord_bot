@@ -42,102 +42,91 @@
         <button id="sign">Sign Message</button>
     </div>
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const address = urlParams.get('address');
-        const message = urlParams.get('message');
-        const discordUserId = urlParams.get('discordUserId'); // 디스코드 사용자 ID
-        const method = urlParams.get('method'); // 인증 방법
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const address = urlParams.get('address');
+            const message = urlParams.get('message');
+            const discordUserId = urlParams.get('discordUserId');
+            const method = urlParams.get('method');
 
-        document.getElementById('message').textContent = `Message: ${message}`;
+            document.getElementById('message').textContent = `Message: ${message}`;
 
-        console.log('address:', address);
-        console.log('message:', message);
-        console.log('discordUserId:', discordUserId);
-        console.log('method:', method);
+            let web3;
+            let userAddress;
 
-        let web3;
-        let userAddress;
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        document.getElementById('connect').onclick = async () => {
-            console.log('Connect button clicked');
-            if (window.ethereum) {
-                try {
-                    console.log('Initializing web3...');
-                    web3 = new Web3(window.ethereum);
-                    console.log('web3 initialized');
+            document.getElementById('connect').onclick = async () => {
+                if (isMobile && !window.ethereum) {
+                    const deepLink = `https://metamask.app.link/dapp/${window.location.hostname}${window.location.pathname}${window.location.search}`;
+                    window.open(deepLink, '_blank');
+                } else if (window.ethereum) {
+                    try {
+                        web3 = new Web3(window.ethereum);
 
-                    // Wallet 연결 요청
-                    await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    const accounts = await web3.eth.getAccounts();
-                    console.log('MetaMask accounts requested:', accounts);
+                        await window.ethereum.request({ method: 'eth_requestAccounts' });
+                        const accounts = await web3.eth.getAccounts();
 
-                    if (accounts.length === 0) {
-                        throw new Error('No active wallet found');
+                        if (accounts.length === 0) {
+                            throw new Error('No active wallet found');
+                        }
+
+                        userAddress = accounts[0];
+
+                        if (userAddress.toLowerCase() !== address.toLowerCase()) {
+                            alert('Connected address does not match the provided address.');
+                        } else {
+                            alert('Wallet connected!');
+                            document.getElementById('sign').style.display = 'inline-block';
+                        }
+                    } catch (error) {
+                        console.error('Failed to connect to Wallet:', error);
+                        alert(`Failed to connect to Wallet. Please ensure MetaMask is installed and an account is selected. Error: ${error.message}`);
                     }
-
-                    userAddress = accounts[0];
-                    console.log('Connected to Wallet, address:', userAddress);
-
-                    if (userAddress.toLowerCase() !== address.toLowerCase()) {
-                        alert('Connected address does not match the provided address.');
-                    } else {
-                        alert('Wallet connected!');
-                        document.getElementById('sign').style.display = 'inline-block';
-                    }
-                } catch (error) {
-                    console.error('Failed to connect to Wallet:', error);
-                    alert(`Failed to connect to Wallet. Please ensure MetaMask is installed and an account is selected. Error: ${error.message}`);
+                } else {
+                    console.error('window.ethereum is not detected');
+                    alert('Wallet not detected. Please install MetaMask.');
                 }
-            } else {
-                console.error('window.ethereum is not detected');
-                alert('Wallet not detected. Please install MetaMask.');
-            }
-        };
+            };
 
-        document.getElementById('sign').onclick = async () => {
-            console.log('Sign button clicked');
-            if (web3 && userAddress) {
-                try {
-                    const signature = await web3.eth.personal.sign(message, userAddress, '');
-                    console.log('Message signed, signature:', signature);
+            document.getElementById('sign').onclick = async () => {
+                if (web3 && userAddress) {
+                    try {
+                        const signature = await web3.eth.personal.sign(message, userAddress, '');
 
-                    let verifyEndpoint;
-                    console.log('method:', method);
-                    if (method === 'metamask') {
-                        verifyEndpoint = 'https://test-discord-bot-bd0bccb22e7d.herokuapp.com/verify-metamask';
-                    } else if (method === 'xplaavault') {
-                        verifyEndpoint = 'https://test-discord-bot-bd0bccb22e7d.herokuapp.com/verify-xplaavault';
-                    } else {
-                        alert('Invalid verification method.');
-                        return;
+                        let verifyEndpoint;
+                        if (method === 'metamask') {
+                            verifyEndpoint = 'https://discord-bot-server-85e66d848a04.herokuapp.com/verify-metamask';
+                        } else if (method === 'xplaavault') {
+                            verifyEndpoint = 'https://discord-bot-server-85e66d848a04.herokuapp.com/verify-xplaavault';
+                        } else {
+                            alert('Invalid verification method.');
+                            return;
+                        }
+
+                        const response = await fetch(verifyEndpoint, { 
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ address, signature, message, discordUserId })
+                        });
+
+                        const result = await response.json();
+                        if (result.success) {
+                            alert('Wallet verified successfully!');
+                            document.getElementById('sign').style.display = 'none';
+                            window.open(result.redirectUrl, '_blank');
+                        } else {
+                            alert('Wallet verification failed: ' + result.error);
+                        }
+                    } catch (error) {
+                        console.error('Failed to sign message:', error);
+                        alert('Failed to sign message.');
                     }
-
-                    console.log('Sending request to:', verifyEndpoint);
-                    const response = await fetch(verifyEndpoint, { 
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ address, signature, message, discordUserId })
-                    });
-                    console.log('Request sent, awaiting response...');
-                    const result = await response.json();
-                    console.log('Received response:', result);
-                    if (result.success) {
-                        alert('Wallet verified successfully!');
-                        document.getElementById('sign').style.display = 'none';
-                        document.getElementById('connect-metamask').style.display = 'none';
-                        document.getElementById('connect-xplaavault').style.display = 'none';
-                        window.location.href = result.redirectUrl; // 인증 완료 후 리디렉션
-                    } else {
-                        alert('Wallet verification failed: ' + result.error);
-                    }
-                } catch (error) {
-                    console.error('Failed to sign message:', error);
-                    alert('Failed to sign message.');
+                } else {
+                    alert('Please connect to Wallet first.');
                 }
-            } else {
-                alert('Please connect to Wallet first.');
-            }
-        };
+            };
+        });
     </script>
 </body>
 </html>
